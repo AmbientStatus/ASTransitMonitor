@@ -26,6 +26,10 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
+#import <CoreMotion/CoreMotion.h>
+
+#import "ASLocationMonitor.h"
+
 @class ASTransitMonitor;
 
 /**
@@ -102,12 +106,12 @@ typedef enum ASUnitType : NSUInteger {
 
 /**
  *  The following readonly properties add getters to an ASTransitMonitor object.
- *  
+ *
  *  @property stationary
  *  @property walking
  *  @property running
  *  @property driving
- *  
+ *
  *  They allow you to check for a specific state of transit.
  */
 @property (readonly, nonatomic, getter=isStationary) BOOL                         stationary;
