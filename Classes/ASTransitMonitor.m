@@ -26,7 +26,9 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
-#import "AmbientStatus.h"
+#import <CoreMotion/CoreMotion.h>
+
+#import "ASLocationMonitor.h"
 #import "ASTransitMonitor.h"
 
 CGFloat kMinimumSpeed               = 0.3f;
@@ -62,7 +64,7 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
     dispatch_once(&onceToken, ^{
         instance = [self new];
     });
-    
+
     return instance;
 }
 
@@ -72,37 +74,37 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
                                                  selector:@selector(handleLocationChangedNotification:)
                                                      name:UIDeviceLocationDidChangeNotification
                                                    object:nil];
-        
+
         _motionManager = [CMMotionManager new];
     }
-    
+
     return self;
 }
 
 - (void)startMonitoring {
     [[ASLocationMonitor sharedInstance] startMonitoring];
     _monitoring = YES;
-    
+
     _shakeDetectingTimer = [NSTimer scheduledTimerWithTimeInterval:0.01f target:self selector:@selector(detectShaking) userInfo:nil repeats:YES];
-    
+
     [_motionManager startAccelerometerUpdatesToQueue:[NSOperationQueue new]
                                          withHandler:^(CMAccelerometerData *accelerometerData, NSError *error) {
         _acceleration = accelerometerData.acceleration;
-                                             
+
         [self calculateTransitState];
-        
+
         dispatch_async(dispatch_get_main_queue(), ^{
             if (self.delegate && [self.delegate respondsToSelector:@selector(transitMonitor:didAccelerationChange:)]) {
                 [self.delegate transitMonitor:self didAccelerationChange:_acceleration];
             }
         });
      }];
-    
+
     if (_useM7IfAvailable && [CMMotionActivityManager isActivityAvailable]) {
         if (!_motionActivityManager) {
             _motionActivityManager = [CMMotionActivityManager new];
         }
-        
+
         [_motionActivityManager startActivityUpdatesToQueue:[NSOperationQueue new] withHandler:^(CMMotionActivity *activity) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (activity.walking) {
@@ -117,33 +119,33 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
                 else if (activity.stationary || activity.unknown) {
                     _state = ASTransitStateStationary;
                 }
-                
+
                 // If State was changed, then call delegate method
                 if (_state != _previousTransitState) {
                     _previousTransitState = _state;
-                    
+
                     if (_delegate && [_delegate respondsToSelector:@selector(transitMonitor:didChangeTransitState:)]) {
                         [_delegate transitMonitor:self didChangeTransitState:_state];
                     }
                 }
             });
-            
+
         }];
     }
 }
 
 - (void)stopMonitoring {
     [_shakeDetectingTimer invalidate];
-    
+
     _shakeDetectingTimer = nil;
-    
+
     [[ASLocationMonitor sharedInstance] stopMonitoring];
-    
+
     [_motionManager stopAccelerometerUpdates];
     [_motionActivityManager stopActivityUpdates];
-    
+
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    
+
     _monitoring = NO;
 }
 
@@ -161,19 +163,19 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
         case ASUnitTypeFeetPerSecond:
             return _speed * 3.28084;
             break;
-            
+
         case ASUnitTypeYardsPerSecond:
             return _speed * 1.0936133;
             break;
-            
+
         case ASUnitTypeMilesPerHour:
             return _speed * 2.23694;
             break;
-            
+
         case ASUnitTypeKilometersPerHour:
             return _speed * 3.6;
             break;
-            
+
         default:
             return _speed;
             break;
@@ -204,7 +206,7 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
     if (_useM7IfAvailable && [CMMotionActivityManager isActivityAvailable]) {
         return;
     }
-    
+
     if (_speed < kMinimumSpeed) {
         _state = ASTransitStateStationary;
     }
@@ -217,11 +219,11 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
     else {
         _state = ASTransitStateDriving;
     }
-    
+
     // If state was changed, then call delegate method
     if (_state != _previousTransitState) {
         _previousTransitState = _state;
-        
+
         dispatch_async(dispatch_get_main_queue(), ^{
             if (_delegate && [_delegate respondsToSelector:@selector(transitMonitor:didChangeTransitState:)]) {
                 [_delegate transitMonitor:self didChangeTransitState:_state];
@@ -232,22 +234,22 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
 
 - (void)setState:(ASTransitState)state {
     [self resetTransitStates];
-    
+
     _stationary = NO;
-    
+
     switch (state) {
         case ASTransitStateStationary:
             _stationary = YES;
             break;
-            
+
         case ASTransitStateWalking:
             _walking = YES;
             break;
-            
+
         case ASTransitStateRunning:
             _running = YES;
             break;
-            
+
         default:
             _driving = YES;
             break;
@@ -259,7 +261,7 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
     _walking = NO;
     _running = NO;
     _driving = NO;
-    
+
     _state = ASTransitStateStationary;
 }
 
@@ -270,12 +272,12 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
     static NSMutableArray *shakeDataForOneSec = nil;
     //Counter for calculating complition of one second interval
     static float currentFiringTimeInterval = 0.0f;
-    
+
     currentFiringTimeInterval += 0.01f;
     if (currentFiringTimeInterval < 1.0f) {
         if (!shakeDataForOneSec)
             shakeDataForOneSec = [NSMutableArray array];
-        
+
         // Add current acceleration to array
         NSValue *boxedAcceleration = [NSValue value:&_acceleration withObjCType:@encode(CMAcceleration)];
         [shakeDataForOneSec addObject:boxedAcceleration];
@@ -284,24 +286,24 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
         // Now, when one second was elapsed, calculate shake count in this interval. If the will be at least one shake then
         // we'll determine it as shaked in all this one second interval.
         int shakeCount = 0;
-        
+
         for (NSValue *boxedAcceleration in shakeDataForOneSec) {
             CMAcceleration acceleration;
-            
+
             [boxedAcceleration getValue:&acceleration];
-            
+
             double accX_2 = powf(acceleration.x, 2);
             double accY_2 = powf(acceleration.y, 2);
             double accZ_2 = powf(acceleration.z, 2);
-            
+
             double vectorSum = sqrt(accX_2 + accY_2 + accZ_2);
-            
+
             if (vectorSum >= kMinimumRunningAcceleration) {
                 shakeCount++;
             }
         }
         _shaking = shakeCount > 0;
-        
+
         shakeDataForOneSec = nil;
         currentFiringTimeInterval = 0.0f;
     }
@@ -311,20 +313,20 @@ CGFloat kMinimumRunningAcceleration = 3.5f;
 
 - (void)handleLocationChangedNotification:(NSNotification *)notification {
     _currentLocation = [ASLocationMonitor sharedInstance].lastLocation;
-    
+
     CGFloat _oldSpeed = _speed;
     _speed = _currentLocation.speed;
-    
+
     if (_speed < 0) {
         _speed = 0;
     }
-    
+
     dispatch_async(dispatch_get_main_queue(), ^{
         if (_delegate && [_delegate respondsToSelector:@selector(transitMonitor:didChangeSpeed:oldSpeed:)]) {
             [_delegate transitMonitor:self didChangeSpeed:_speed oldSpeed:_oldSpeed];
         }
     });
-    
+
     [self calculateTransitState];
 }
 
