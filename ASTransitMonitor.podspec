@@ -7,7 +7,7 @@ Pod::Spec.new do |spec|
   spec.summary      = "Seamlessly update your app based on the user's transit state."
   spec.source       = { :git => 'https://github.com/AmbientStatus/ASTransitMonitor.git', :tag => spec.version.to_s }
   spec.source_files = 'Classes/'
-  spec.framework    = 'CoreMotion'
+  spec.frameworks   = 'CoreMotion', 'UIKit', 'Foundation'
   spec.dependency   = 'ASLocationMonitor'
   spec.requires_arc = true
 end
