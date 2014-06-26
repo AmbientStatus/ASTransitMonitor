@@ -8,7 +8,8 @@ Pod::Spec.new do |spec|
   spec.source       = { :git => 'https://github.com/AmbientStatus/ASTransitMonitor.git', :tag => spec.version.to_s }
   spec.source_files = 'Classes/'
   spec.frameworks   = 'CoreMotion'
-  spec.dependency   = 'ASLocationMonitor'
   spec.platform     = :ios, '7.0'
   spec.requires_arc = true
+  
+  spec.dependency 'ASLocationMonitor'
 end
